@@ -9,10 +9,15 @@ fn main() {
     for line in contents.lines() {
         let mut parts = line.split(" ");
         let oponent = character_to_number(parts.nth(0).unwrap());
-        let player = character_to_number(parts.nth(0).unwrap());
+        let mut player = character_to_number(parts.nth(0).unwrap());
+        player = strategy(player, oponent);
         score += play(player, oponent);
     }
     println!("Final score: {}", score);
+}
+
+fn strategy(player: usize, oponent: usize) -> usize {
+    return (oponent + player + 2) % 3;
 }
 
 fn play(player: usize, oponent: usize) -> usize {
