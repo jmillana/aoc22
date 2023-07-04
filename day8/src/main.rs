@@ -1,89 +1,81 @@
-use std::ops::Range;
+use itertools::Itertools;
 use std::{env, fs};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
-    let contents = fs::read_to_string(filename).expect("Something went wrong reading the file");
-    let grid = Grid::build(&contents);
-    println!("{:?}", grid);
-    println!("Visible trees: {}", grid.get_visible());
+    let puzzle = get_puzzle(filename);
+    let result_part1 = part_1(&puzzle);
+    println!("Part 1: {}", result_part1);
+    let result_part2 = part_2(&puzzle);
+    println!("Part 2: {}", result_part2);
 }
 
-#[derive(Debug)]
-struct Grid {
-    width: usize,
-    height: usize,
-    cells: Vec<Vec<u8>>,
+fn get_puzzle(path: &str) -> String {
+    let contents = fs::read_to_string(path).expect("Something went wrong reading the file");
+    contents
 }
 
-impl Grid {
-    fn build(data: &String) -> Self {
-        let mut lines = data.lines();
-        let width = lines.next().unwrap().len();
-        let height = data.lines().count();
-        let mut cells = Vec::with_capacity(height);
-        for line in lines {
-            let mut row = Vec::with_capacity(width);
-            for c in line.chars() {
-                row.push(c as u8);
-            }
-            cells.push(row);
-        }
-        return Grid {
-            width,
-            height,
-            cells,
-        };
-    }
+fn process_puzzle(puzzle: &str) -> Vec<Vec<u32>> {
+    return puzzle
+        .lines()
+        .map(|line| line.chars().map(|num| num.to_digit(10).unwrap()).collect())
+        .collect();
+}
 
-    fn check_column_visibility(&self, point: u8, column: usize, range: Range<usize>) -> bool {
-        let mut is_visible = true;
-        for down in range {
-            if point <= self.cells[down][column] {
-                is_visible = false;
-                break;
-            }
-        }
-        return is_visible;
-    }
+fn directions(grid: &[Vec<u32>], x: usize, y: usize) -> [Vec<u32>; 4] {
+    let row = grid[y].clone();
+    let col = grid.iter().map(|row| row[x]).collect::<Vec<u32>>();
 
-    fn check_row_visibility(&self, point: u8, row: usize, range: Range<usize>) -> bool {
-        let mut is_visible = true;
-        for right in range {
-            if point <= self.cells[row][right] {
-                is_visible = false;
-                break;
-            }
-        }
-        return is_visible;
-    }
+    let (left, right) = row.split_at(x);
+    let (up, down) = col.split_at(y);
 
-    fn get_visible(&self) -> u16 {
-        let mut visible = 2 * (self.width + self.height - 2) as u16;
+    let up = up.iter().copied().rev().collect();
+    let left = left.iter().copied().rev().collect();
+    let right = right[1..].to_vec();
+    let down = down[1..].to_vec();
 
-        for i in 1..self.height - 1 {
-            for j in 1..self.width - 1 {
-                let current_cell = self.cells[i][j];
-                if self.check_row_visibility(current_cell, i, j..self.width) {
-                    visible += 1;
-                    continue;
-                }
-                if self.check_row_visibility(current_cell, i, 0..j) {
-                    visible += 1;
-                    continue;
-                };
+    return [up, down, left, right];
+}
 
-                if self.check_column_visibility(current_cell, j, i..self.height) {
-                    visible += 1;
-                    continue;
-                }
-                if self.check_column_visibility(current_cell, j, 0..i) {
-                    visible += 1;
-                    continue;
-                }
-            }
-        }
-        return visible;
-    }
+fn part_1(puzzle: &str) -> usize {
+    let grid = process_puzzle(puzzle);
+    let len = grid.len();
+
+    return (1..len - 1)
+        .cartesian_product(1..len - 1)
+        .map(|(y, x)| {
+            let height = grid[y][x];
+
+            directions(&grid, x, y)
+                .iter()
+                .map(|dir| dir.iter().all(|h| h < &height))
+                .any(|visible| visible)
+        })
+        .filter(|visible| *visible)
+        .count()
+        + (len - 1) * 4;
+}
+
+fn part_2(puzzle: &str) -> usize {
+    let grid = process_puzzle(puzzle);
+    let len = grid.len();
+
+    return (1..len - 1)
+        .cartesian_product(1..len - 1)
+        .map(|(y, x)| {
+            let height = grid[y][x];
+
+            directions(&grid, x, y)
+                .iter()
+                .map(|dir| {
+                    dir.iter()
+                        .position(|h| h >= &height)
+                        .map(|pos| pos + 1)
+                        .unwrap_or_else(|| dir.len())
+                })
+                .product::<usize>()
+        })
+        .max()
+        .unwrap();
 }
